@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>XAU V11 · HIGH ACCURACY SNIPER</title>
+    <style>
+        :root { 
+            --h1-p: #BF40BF; --m30-b: #0000FF; --m15-y: #FFFF00; --m5-g: #00FF00; --m1-w: #FFFFFF; 
+            --cyan: #00ffff; --wait: #ffcc00;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: #000; color: #00ff66; font-family: 'Courier New', monospace; overflow: hidden; }
+        
+        /* HEADER STATUS */
+        #status-bar { 
+            position: fixed; top: 0; width: 100%; height: 45px; 
+            background: rgba(0,0,0,0.95); display: flex; align-items: center; 
+            justify-content: center; z-index: 10000; font-size: 12px; 
+            font-weight: 900; border-bottom: 1px solid #333; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        /* HIGH ACCURACY ZONE OVERLAY */
+        #disc-zone {
+            position: fixed; left: 0; right: 0; top: 50%; height: 100px;
+            margin-top: -50px; border-top: 1px dashed rgba(0,255,255,0.3);
+            border-bottom: 1px dashed rgba(0,255,255,0.3); display: none;
+            z-index: 9998; pointer-events: none; transition: background 0.4s;
+        }
+        #disc-zone.state-enter { 
+            background: rgba(0,255,255,0.12); 
+            border-top: 2px solid var(--cyan); 
+            border-bottom: 2px solid var(--cyan);
+        }
+
+        #disc-zone-label {
+            position: fixed; left: 50%; transform: translateX(-50%); top: calc(50% - 65px);
+            font-size: 11px; color: var(--cyan); background: rgba(0,0,0,0.85);
+            padding: 4px 12px; border: 1px solid #444; border-radius: 4px; 
+            display: none; z-index: 9999; font-weight: bold; text-align: center;
+        }
+
+        /* MID LINE VISUAL */
+        #mid-line {
+            position: fixed; left: 0; right: 0; top: 50%; height: 1px;
+            background: rgba(255,255,255,0.2); z-index: 9997; display: none;
+        }
+
+        /* MISSION DRAWER */
+        #toggle-mission {
+            position: fixed; top: 55px; left: 10px; z-index: 10001;
+            background: rgba(255,255,255,0.1); border: 1px solid #555;
+            color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 10px; cursor: pointer;
+        }
+        #mission-panel {
+            position: fixed; top: 55px; left: 10px; width: 270px;
+            background: rgba(0,0,0,0.95); border: 1px solid #333;
+            border-radius: 8px; z-index: 10000; padding: 15px;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            transform: translateX(-300px); opacity: 0;
+        }
+        #mission-panel.show { transform: translateX(0); opacity: 1; }
+
+        .m-row { display: flex; flex-direction: column; font-size: 11px; margin-bottom: 10px; padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.03); border-left: 4px solid; }
+        .tf-label { font-weight: bold; padding: 2px 6px; border-radius: 2px; color: #000; font-size: 10px; }
+        .dir-up { color: #00ff66; }
+        .dir-down { color: #ff4444; }
+        .achieved { opacity: 0.15; filter: grayscale(1); }
+
+        /* INTERFACE ELEMENTS */
+        .chart-frame { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        #tf-selector { position: fixed; top: 55px; right: 10px; z-index: 10000; display: flex; flex-direction: column; gap: 6px; }
+        .tf-btn { background: rgba(0,0,0,0.7); border: 1px solid #444; color: #fff; padding: 10px; border-radius: 6px; font-size: 10px; font-weight: bold; width: 48px; }
+        .tf-btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,255,255,0.1); }
+
+        #action-panel { position: fixed; bottom: 85px; left: 5%; width: 90%; display: flex; gap: 12px; z-index: 10001; }
+        .btn-trade { flex: 1; padding: 18px; border: none; border-radius: 10px; font-weight: 900; font-size: 16px; letter-spacing: 1px; transition: 0.2s; }
+        .btn-trade:disabled { background: #1a1a1a !important; color: #444 !important; transform: scale(1) !important; }
+        .btn-trade:active { transform: scale(0.92); }
+
+        #footer { 
+            position: fixed; bottom: 0; width: 100%; height: 50px; 
+            background: #000; border-top: 1px solid #222; display: flex; 
+            justify-content: space-between; align-items: center; padding: 0 20px; 
+            font-size: 11px; z-index: 10000; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="status-bar">CONNECTING TO ENGINE...</div>
+
+<div id="disc-zone"></div>
+<div id="mid-line"></div>
+<div id="disc-zone-label">M5 ASYMMETRIC ZONE</div>
+
+<button id="toggle-mission" onclick="toggleMissionPanel()">MISSIONS ↓</button>
+
+<div id="mission-panel">
+    <div class="m-row" id="row-h1" style="border-color: var(--h1-p);"><div style="margin-bottom:4px"><span class="tf-label" style="background:var(--h1-p)">H1</span><span id="h1-timer" style="font-size:9px;margin-left:8px"></span></div><div id="h1-val">...</div></div>
+    <div class="m-row" id="row-m30" style="border-color: var(--m30-b);"><div style="margin-bottom:4px"><span class="tf-label" style="background:var(--m30-b);color:#fff">M30</span><span id="m30-timer" style="font-size:9px;margin-left:8px"></span></div><div id="m30-val">...</div></div>
+    <div class="m-row" id="row-m15" style="border-color: var(--m15-y);"><div style="margin-bottom:4px"><span class="tf-label" style="background:var(--m15-y)">M15</span><span id="m15-timer" style="font-size:9px;margin-left:8px"></span></div><div id="m15-val">...</div></div>
+    <div class="m-row" id="row-m5" style="border-color: var(--m5-g);"><div style="margin-bottom:4px"><span class="tf-label" style="background:var(--m5-g)">M5</span><span id="m5-timer" style="font-size:9px;margin-left:8px"></span></div><div id="m5-val">...</div></div>
+    <div class="m-row" id="row-m1" style="border-color: var(--m1-w);"><div style="margin-bottom:4px"><span class="tf-label" style="background:var(--m1-w)">M1</span><span id="m1-timer" style="font-size:9px;margin-left:8px"></span></div><div id="m1-val">...</div></div>
+</div>
+
+<div id="tf-selector">
+    <button class="tf-btn" onclick="changeTF('1', this)">M1</button>
+    <button class="tf-btn" onclick="changeTF('5', this)">M5</button>
+    <button class="tf-btn active" onclick="changeTF('15', this)">M15</button>
+    <button class="tf-btn" onclick="changeTF('60', this)">H1</button>
+</div>
+
+<div class="chart-frame">
+    <iframe id="tv-chart" src="https://s.tradingview.com/widgetembed/?symbol=OANDA:XAUUSD&interval=15&theme=dark" style="width:100%;height:100%;border:none;"></iframe>
+</div>
+
+<div id="action-panel">
+    <button id="btn-buy" style="background:#00ff66; color:#000" class="btn-trade" onclick="sendEntry('BUY')">BUY</button>
+    <button id="btn-sell" style="background:#ff4444; color:#fff" class="btn-trade" onclick="sendEntry('SELL')">SELL</button>
+</div>
+
+<div id="footer">
+    <div id="price-display">XAU: 0.00</div>
+    <div id="rescue-display">RESCUE: 0/2</div>
+    <div id="mode-display" onclick="toggleMode()" style="border:1px solid #00ff66; padding:5px 10px; cursor:pointer; font-weight:bold; color:#00ff66; border-radius:4px; font-size:10px;">MODE: PROP</div>
+</div>
+
+<script>
+    const WS_URL = "wss://xauusdsuperfinal.sapammeded.workers.dev/";
+    let ws;
+    let currentBid = 0;
+    
+    // Audio Context for High Accuracy Confirm
+    const alertCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playConfirmSound() {
+        const osc = alertCtx.createOscillator();
+        const gain = alertCtx.createGain();
+        osc.connect(gain); gain.connect(alertCtx.destination);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(1200, alertCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, alertCtx.currentTime);
+        osc.start(); osc.stop(alertCtx.currentTime + 0.15);
+    }
+
+    function toggleMode() {
+        if (!ws || ws.readyState !== 1) return;
+        const el = document.getElementById('mode-display');
+        const next = el.innerText.includes("PROP") ? "DISCRETIONARY" : "PROP_DESK";
+        ws.send(JSON.stringify({ cmd: "SET_MODE", mode: next }));
+    }
+
+    function toggleMissionPanel() { document.getElementById('mission-panel').classList.toggle('show'); }
+    
+    function changeTF(interval, btn) {
+        document.getElementById('tv-chart').src = `https://s.tradingview.com/widgetembed/?symbol=OANDA:XAUUSD&interval=${interval}&theme=dark`;
+        document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function connect() {
+        ws = new WebSocket(WS_URL);
+        const bar = document.getElementById('status-bar');
+
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+
+            if (data.type === "MODE_UPDATE") {
+                const el = document.getElementById('mode-display');
+                if (data.mode === "DISCRETIONARY") {
+                    el.innerText = "MODE: DISC"; el.style.borderColor = "#ffff00"; el.style.color = "#ffff00";
+                    bar.innerText = "⚠️ DISCRETIONARY: WAIT FOR 4s CONFIRM";
+                    bar.style.color = "#ffff00";
+                } else {
+                    el.innerText = "MODE: PROP"; el.style.borderColor = "#00ff66"; el.style.color = "#00ff66";
+                    bar.innerText = "🛡️ PROP DESK ACTIVE";
+                    bar.style.color = "#00ff66";
+                }
+            }
+
+            if (data.type === "TICK") {
+                currentBid = parseFloat(data.bid);
+                document.getElementById('price-display').innerText = `XAU: ${data.bid}`;
+                document.getElementById('rescue-display').innerText = `RESCUE: ${data.rescue}/2`;
+
+                // ✅ ACCURACY ZONE VISUALS
+                const zoneEl = document.getElementById('disc-zone');
+                const labelEl = document.getElementById('disc-zone-label');
+                const midEl = document.getElementById('mid-line');
+                const dz = data.discretionaryZone;
+
+                if (data.mode === "DISCRETIONARY" && dz?.low) {
+                    zoneEl.style.display = "block";
+                    labelEl.style.display = "block";
+                    midEl.style.display = "block";
+                    
+                    labelEl.innerHTML = `<span style="color:#fff">${dz.bias} BIAS</span> | ${dz.state}<br><small>${dz.low} - ${dz.high}</small>`;
+                    
+                    if (dz.state === "ENTER") {
+                        zoneEl.classList.add('state-enter');
+                        bar.innerText = "⚡ ACCURACY CONFIRMED: EXECUTE " + dz.bias;
+                        bar.style.background = "rgba(0,255,255,0.9)";
+                        bar.style.color = "#000";
+                        if (dz.alert) playConfirmSound();
+                    } else {
+                        zoneEl.classList.remove('state-enter');
+                        bar.innerText = "WAITING FOR 4s STABILITY...";
+                        bar.style.background = "rgba(0,0,0,0.95)";
+                        bar.style.color = "#ffff00";
+                    }
+                } else {
+                    zoneEl.style.display = "none";
+                    labelEl.style.display = "none";
+                    midEl.style.display = "none";
+                    if (data.mode === "DISCRETIONARY") bar.style.background = "rgba(0,0,0,0.95)";
+                }
+
+                // MISSION & LOCK HANDLER
+                const isLocked = !data.storyActive || data.rescue === 2;
+                document.getElementById('btn-buy').disabled = isLocked;
+                document.getElementById('btn-sell').disabled = isLocked;
+
+                ['h1', 'm30', 'm15', 'm5', 'm1'].forEach(tf => {
+                    const valEl = document.getElementById(`${tf}-val`);
+                    const timEl = document.getElementById(`${tf}-timer`);
+                    const rowEl = document.getElementById(`row-${tf}`);
+                    const mVal = data.mission[tf];
+                    const achAt = data.policy.archive[tf];
+
+                    if (mVal === "ACHIEVED") {
+                        valEl.innerHTML = `<span style="opacity:0.4">COMPLETED</span>`;
+                        rowEl.classList.add('achieved');
+                        if (achAt) {
+                            const rem = 3600 - Math.floor((Date.now() - achAt) / 1000);
+                            timEl.innerText = rem > 0 ? `(${Math.floor(rem/60)}m)` : "";
+                        }
+                    } else {
+                        rowEl.classList.remove('achieved'); timEl.innerText = "";
+                        const target = parseFloat(mVal);
+                        const dir = target > currentBid ? "UP ▲" : "DOWN ▼";
+                        const cls = target > currentBid ? "dir-up" : "dir-down";
+                        valEl.innerHTML = `<span class="${cls}">${dir}</span> <b>${mVal}</b>`;
+                    }
+                });
+            }
+
+            if (data.type === "ENTRY_RES") {
+                bar.innerText = data.ok ? `SUCCESS: ${data.note}` : `REJECTED: ${data.note}`;
+                bar.style.background = data.ok ? "#00ff66" : "#ff4444";
+                bar.style.color = data.ok ? "#000" : "#fff";
+            }
+        };
+
+        ws.onclose = () => { bar.innerText = "RECONNECTING..."; setTimeout(connect, 2000); };
+    }
+
+    function sendEntry(side) { 
+        if (ws && ws.readyState === 1) {
+            if (alertCtx.state === 'suspended') alertCtx.resume();
+            ws.send(JSON.stringify({ cmd: "ENTRY", side: side })); 
+        }
+    }
+
+    connect();
+</script>
+</body>
+</html>
