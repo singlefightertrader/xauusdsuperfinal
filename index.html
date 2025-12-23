@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>XAU PREDATOR V12.2 – AUTO DEBUG</title>
+
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
@@ -53,7 +54,7 @@ body{
     <div class="card"><div class="label">State</div><div id="state" class="val">-</div></div>
 
     <div id="reason" class="card">INITIALIZING…</div>
-    <div id="debug">DEBUG: waiting websocket…</div>
+    <div id="debug">DEBUG: booting…</div>
     <div id="log"></div>
 
     <div class="btns">
@@ -65,8 +66,19 @@ body{
 
 <script>
 /* ================= CONFIG ================= */
-const WORKER_URL = "wss://xauusdsuperfinal3.sapammeded.workers.dev"; // 🔥 WAJIB
+const WORKER_URL = "wss://xauusdsuperfinal3.sapammeded.workers.dev/"; // WAJIB BENAR
 let ws, lastState="", connected=false;
+
+/* ================= DEBUG ================= */
+function dbg(msg){
+  document.getElementById('debug').innerText="DEBUG: "+msg;
+}
+function log(msg){
+  const l=document.getElementById('log');
+  const d=document.createElement('div');
+  d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
+  l.prepend(d);
+}
 
 /* ================= CHART ================= */
 const chart = LightweightCharts.createChart(
@@ -82,20 +94,9 @@ const tpL = chart.addLineSeries({color:'#00ff66',lineWidth:2,lineStyle:2});
 const zU = chart.addLineSeries({color:'rgba(0,255,255,.25)',lineWidth:1});
 const zL = chart.addLineSeries({color:'rgba(0,255,255,.25)',lineWidth:1});
 
-/* ================= DEBUG ================= */
-function dbg(msg){
-  document.getElementById('debug').innerText="DEBUG: "+msg;
-}
-function log(msg){
-  const l=document.getElementById('log');
-  const d=document.createElement('div');
-  d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
-  l.prepend(d);
-}
-
 /* ================= WS ================= */
 function connect(){
-  dbg("connecting to "+WORKER_URL);
+  dbg("connecting to worker...");
   ws=new WebSocket(WORKER_URL);
 
   ws.onopen=()=>{
@@ -105,12 +106,12 @@ function connect(){
   };
 
   ws.onerror=()=>{
-    dbg("WS ERROR → buka HTML via HTTPS!");
+    dbg("WS ERROR (HTML HARUS HTTPS)");
   };
 
   ws.onclose=()=>{
     connected=false;
-    dbg("WS CLOSED → retry 2s");
+    dbg("WS CLOSED – retry 2s");
     setTimeout(connect,2000);
   };
 
@@ -168,7 +169,7 @@ function connect(){
 
 /* ================= START ================= */
 if(location.protocol!=="https:"){
-  dbg("ERROR: HTML dibuka TANPA HTTPS ❌");
+  dbg("ERROR: HTML DIBUKA TANPA HTTPS ❌");
 }else{
   connect();
 }
