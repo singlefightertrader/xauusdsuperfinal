@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>XAU PREDATOR V12.2 – AUTO DEBUG</title>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+:root{
+  --bg:#050505;--card:#111;--text:#eee;--accent:#00ffff;
+  --wait:#444;--arming:#ffcc00;--enter:#00ff66;--locked:#ff4444;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:Consolas,monospace;height:100vh;overflow:hidden;padding:8px
+}
+.grid{display:grid;grid-template-rows:1fr auto;gap:8px;height:100%}
+.box{background:var(--card);border:1px solid #333;border-radius:8px;overflow:hidden;position:relative}
+#chart{width:100%;height:100%}
+.sidebar{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.card{background:#000;border:1px solid #222;border-radius:6px;padding:8px;text-align:center}
+.label{font-size:10px;color:#666;text-transform:uppercase}
+.val{font-size:18px;font-weight:bold}
+#price{font-size:28px;color:var(--accent)}
+#reason{grid-column:span 2;color:var(--accent);font-weight:bold;font-size:13px}
+#debug{grid-column:span 2;font-size:11px;color:#ff6666;background:#000;border:1px dashed #333;padding:6px}
+#log{grid-column:span 2;height:60px;overflow-y:auto;font-size:11px;color:#00ff66;background:#000;border:1px solid #222;padding:4px}
+.btns{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn{padding:12px;border:none;border-radius:6px;font-weight:bold;color:#fff;opacity:.15}
+.buy{background:#008800}.sell{background:#880000}
+.active{opacity:1;box-shadow:0 0 12px currentColor}
+.ind{position:absolute;bottom:0;left:0;height:4px;width:100%;background:var(--wait)}
+</style>
+</head>
+
+<body>
+<div class="grid">
+  <div class="box">
+    <div id="chart"></div>
+    <div id="ind" class="ind"></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="card" style="grid-column:span 2">
+      <div class="label">XAUUSD BID</div>
+      <div id="price" class="val">0.00</div>
+      <div id="raw" style="font-size:11px;color:#555">RAW: 0.0000</div>
+    </div>
+
+    <div class="card"><div class="label">Bias</div><div id="bias" class="val">-</div></div>
+    <div class="card"><div class="label">State</div><div id="state" class="val">-</div></div>
+
+    <div id="reason" class="card">INITIALIZING…</div>
+    <div id="debug">DEBUG: waiting websocket…</div>
+    <div id="log"></div>
+
+    <div class="btns">
+      <button id="buy" class="btn buy">BUY</button>
+      <button id="sell" class="btn sell">SELL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const WORKER_URL = "wss://xauusdsuperfinal3.sapammeded.workers.dev"; // 🔥 WAJIB
+let ws, lastState="", connected=false;
+
+/* ================= CHART ================= */
+const chart = LightweightCharts.createChart(
+  document.getElementById('chart'),
+  {layout:{backgroundColor:'#000',textColor:'#d1d4dc'},
+   grid:{vertLines:{color:'#111'},horzLines:{color:'#111'}},
+   timeScale:{timeVisible:true,secondsVisible:true}}
+);
+const candle = chart.addCandlestickSeries();
+const entryL = chart.addLineSeries({color:'#00ffff',lineWidth:2});
+const slL = chart.addLineSeries({color:'#ff4444',lineWidth:2,lineStyle:2});
+const tpL = chart.addLineSeries({color:'#00ff66',lineWidth:2,lineStyle:2});
+const zU = chart.addLineSeries({color:'rgba(0,255,255,.25)',lineWidth:1});
+const zL = chart.addLineSeries({color:'rgba(0,255,255,.25)',lineWidth:1});
+
+/* ================= DEBUG ================= */
+function dbg(msg){
+  document.getElementById('debug').innerText="DEBUG: "+msg;
+}
+function log(msg){
+  const l=document.getElementById('log');
+  const d=document.createElement('div');
+  d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
+  l.prepend(d);
+}
+
+/* ================= WS ================= */
+function connect(){
+  dbg("connecting to "+WORKER_URL);
+  ws=new WebSocket(WORKER_URL);
+
+  ws.onopen=()=>{
+    connected=true;
+    dbg("WEBSOCKET CONNECTED ✔");
+    log("WS CONNECTED");
+  };
+
+  ws.onerror=()=>{
+    dbg("WS ERROR → buka HTML via HTTPS!");
+  };
+
+  ws.onclose=()=>{
+    connected=false;
+    dbg("WS CLOSED → retry 2s");
+    setTimeout(connect,2000);
+  };
+
+  ws.onmessage=(e)=>{
+    const d=JSON.parse(e.data);
+    if(d.type!=="TICK")return;
+
+    document.getElementById('price').innerText=d.bid;
+    document.getElementById('raw').innerText="RAW: "+d.raw;
+
+    const bias=d.discretionaryZone.bias;
+    const state=d.discretionaryZone.state;
+    const reason=d.discretionaryZone.reason;
+
+    document.getElementById('bias').innerText=bias;
+    document.getElementById('bias').style.color=bias==="BUY"?"#00ff66":"#ff4444";
+    document.getElementById('state').innerText=state;
+    document.getElementById('reason').innerText=reason;
+
+    document.getElementById('ind').style.background=
+      state==="WAIT"?"#444":state==="ARMING"?"#ffcc00":
+      state==="ENTER"?"#00ff66":"#ff4444";
+
+    const t=Math.floor(Date.now()/1000);
+    if(d.debug){
+      zU.setData([{time:t-3600,value:d.debug.rawHigh},{time:t+60,value:d.debug.rawHigh}]);
+      zL.setData([{time:t-3600,value:d.debug.rawLow},{time:t+60,value:d.debug.rawLow}]);
+    }
+
+    if(d.position){
+      entryL.setData([{time:t-600,value:d.position.entry},{time:t+60,value:d.position.entry}]);
+      slL.setData([{time:t-600,value:d.position.sl},{time:t+60,value:d.position.sl}]);
+      tpL.setData([{time:t-600,value:d.position.tp},{time:t+60,value:d.position.tp}]);
+    }else{
+      entryL.setData([]);slL.setData([]);tpL.setData([]);
+    }
+
+    if(state==="ENTER" && lastState!=="ENTER"){
+      log("🎯 ENTRY CONFIRMED: "+reason);
+      navigator.vibrate && navigator.vibrate([100,50,100]);
+    }
+    lastState=state;
+
+    document.getElementById('buy').className=`btn buy ${state==="ENTER"&&bias==="BUY"?"active":""}`;
+    document.getElementById('sell').className=`btn sell ${state==="ENTER"&&bias==="SELL"?"active":""}`;
+  };
+}
+
+/* ================= HISTORY ================= */
+(async()=>{
+  const r=await fetch("https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=1m&limit=100");
+  const d=await r.json();
+  candle.setData(d.map(x=>({time:x[0]/1000,open:x[1],high:x[2],low:x[3],close:x[4]})));
+})();
+
+/* ================= START ================= */
+if(location.protocol!=="https:"){
+  dbg("ERROR: HTML dibuka TANPA HTTPS ❌");
+}else{
+  connect();
+}
+
+window.addEventListener('resize',()=>{
+  chart.resize(document.getElementById('chart').clientWidth,
+               document.getElementById('chart').clientHeight);
+});
+</script>
+</body>
+</html>
